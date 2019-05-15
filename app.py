@@ -22,6 +22,7 @@ def db_write(data):
 
 
 def get_max_id(data):
+    print('get_max_id== ', data)
     if data:
         return max(data, key=int)
     else:
@@ -60,8 +61,10 @@ def create_user():
                         mimetype='application/json')
     # example_dict = {'name': 'Ivan', 'age': 33}
     db = db_read()
-    newid = get_max_id(db) + 1
-    db[newid] = {'name': data['name'], 'age': data['age']}
+    print('db:  ', db)
+    new_id = get_max_id(db) + 1
+    print('new_id:  ', new_id)
+    db[new_id] = {'name': data['name'], 'age': data['age']}
     db_write(db)
     return Response('{"Success": "ok"}',
                     status=200,
@@ -96,17 +99,17 @@ def clear_users():
     db_write({})
     return Response('{"status": "ok"}', status=200, mimetype='application/json')
 
-#curl -X GET http://127.0.0.1:8080/users/
-#curl -X GET http://127.0.0.1:8080/users/1
-#curl -X PATCH http://127.0.0.1:8080/users/1?name=ddd
-#curl -X DELETE http://127.0.0.1:8080/users/1
+# curl -X GET http://127.0.0.1:8080/users/
+# curl -X GET http://127.0.0.1:8080/users/1
+# curl -X PATCH http://127.0.0.1:8080/users/1?name=ddd
+# curl -X DELETE http://127.0.0.1:8080/users/1
 # Используем декоратор route() чтобы сообщить Flask, какой URL должен запускать нашу функцию
 @app.route('/users/', methods=['GET', 'POST', 'DELETE'])
 def users():
     if request.method == 'GET':
         return get_all_users()
     elif request.method == 'DELETE':
-        return remove_user()
+        return clear_users()
     elif request.method == 'POST':
         return create_user()
     else:
