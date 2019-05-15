@@ -96,7 +96,10 @@ def clear_users():
     db_write({})
     return Response('{"status": "ok"}', status=200, mimetype='application/json')
 
-
+#curl -X GET http://127.0.0.1:8080/users/
+#curl -X GET http://127.0.0.1:8080/users/1
+#curl -X PATCH http://127.0.0.1:8080/users/1?name=ddd
+#curl -X DELETE http://127.0.0.1:8080/users/1
 # Используем декоратор route() чтобы сообщить Flask, какой URL должен запускать нашу функцию
 @app.route('/users/', methods=['GET', 'POST', 'DELETE'])
 def users():
