@@ -36,6 +36,16 @@ def get_all_users():
     return Response(js, status=200, mimetype='application/json')
 
 
+def get_user(id):
+    db = db_read()
+    if id in db:
+        result = db[id]
+        result['id'] = id
+        return Response(json.dumps(result), status=200, mimetype='application/json')
+    else:
+        return Response('{"status": "error", "error": "unknown id"}', status=404, mimetype='application/json')
+
+
 def create_user():
     try:
         # data заполняется если flask что-то непонял
@@ -58,13 +68,10 @@ def create_user():
                     mimetype='application/json')
 
 
-def update_user():
+def update_user(id):
     data = request.args
     if 'name' not in data and 'age' not in data:
         return Response('{"status": "error", "error": "age of name missing"}', status=400, mimetype='application/json')
-    if 'id' not in data:
-        return create_user()
-    id = data['id']
     db = db_read()
     if id not in db:
         return Response('{"status": "error", "error": "unknown id"}', status=404, mimetype='application/json')
@@ -76,11 +83,7 @@ def update_user():
     return Response('{"status": "ok"}', status=200, mimetype='application/json')
 
 
-def remove_user():
-    data = request.args
-    if 'id' not in data:
-        return Response('{"status": "error", "error": "id missing"}', status=400, mimetype='application/json')
-    id = data['id']
+def remove_user(id):
     db = db_read()
     if id not in db:
         return Response('{"status": "error", "error": "unknown id"}', status=404, mimetype='application/json')
@@ -89,18 +92,36 @@ def remove_user():
     return Response('{"status": "ok"}', status=200, mimetype='application/json')
 
 
+def clear_users():
+    db_write({})
+    return Response('{"status": "ok"}', status=200, mimetype='application/json')
+
+
 # Используем декоратор route() чтобы сообщить Flask, какой URL должен запускать нашу функцию
-@app.route('/users/', methods=['GET', 'POST', 'PATCH', 'DELETE'])
-@app.route('/users/<id>', methods=['GET', 'POST', 'PATCH', 'DELETE'])
-def users(*args, **kwargs):
+@app.route('/users/', methods=['GET', 'POST', 'DELETE'])
+def users():
     if request.method == 'GET':
         return get_all_users()
-    elif request.method == 'POST':
-        return create_user()
-    elif request.method == 'PATCH':
-        return update_user()
     elif request.method == 'DELETE':
         return remove_user()
+    elif request.method == 'POST':
+        return create_user()
+    else:
+        pass
+
+
+@app.route('/users/<id>', methods=['GET', 'POST', 'PATCH', 'DELETE'])
+def user(id):
+    try:
+        id = int(id)
+    except ValueError:
+        return Response('{"status": "error", "error": "invalid id"}', status=400, mimetype='application/json')
+    if request.method == 'GET':
+        return get_user(id)
+    elif request.method == 'PATCH':
+        return update_user(id)
+    elif request.method == 'DELETE':
+        return remove_user(id)
     else:
         pass
 
