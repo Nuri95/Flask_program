@@ -5,17 +5,38 @@ from flask import Flask, request, Response
 app = Flask(__name__)  # Мы создаем экземпляр этого класса.
 
 
-def get_all_users():
-    print(request.args)   # Для доступа к параметрам, представленным в URL ( ?key=value )
-    pickle_in = open('data.pickle', 'rb')
-    data_new = pickle.load(pickle_in)  # Загружает объект из файла
-    js = json.dumps(data_new)  # Сериализует obj в строку JSON-формата.
+def db_read():
+    try:
+        pickle_in = open('data.pickle', 'rb')
+    except IOError:
+        return {}
+    data = pickle.load(pickle_in)  # Загружает объект из файла
     pickle_in.close()
+    return data
+
+
+def db_write(data):
+    pickle_out = open('data.pickle', 'wb')
+    pickle.dump(data, pickle_out)  # Записывает сериализованный объект в файл
+    pickle_out.close()
+
+
+def get_max_id(data):
+    if data:
+        return max(data, key=int)
+    else:
+        return 0
+
+
+def get_all_users():
+    print(request.args)  # Для доступа к параметрам, представленным в URL ( ?key=value )
+    all_users = db_read()
+    js = json.dumps(all_users)  # Сериализует obj в строку JSON-формата.
+
     return Response(js, status=200, mimetype='application/json')
 
 
 def create_user():
-    # data = request.data
     try:
         # data заполняется если flask что-то непонял
         # data = json.loads(request.data)   # десериализует s (экземпляр str, содержащий документ JSON) в объект Python.
@@ -27,43 +48,50 @@ def create_user():
         return Response('{"status": "error","error":"Bad request"}',
                         status=400,
                         mimetype='application/json')
-    print('здесь')
     # example_dict = {'name': 'Ivan', 'age': 33}
-    pickle_in = open('data.pickle', 'rb')
-    data_new = pickle.load(pickle_in)    # Загружает объект из файла
-    data_new['name'] = data['name']
-    data_new['age'] = data['age']
-
-    pickle_out = open('data.pickle', 'wb')
-    pickle.dump(data_new, pickle_out)     # Записывает сериализованный объект в файл
-    pickle_out.close()
+    db = db_read()
+    newid = get_max_id(db) + 1
+    db[newid] = {'name': data['name'], 'age': data['age']}
+    db_write(db)
     return Response('{"Success": "ok"}',
                     status=200,
                     mimetype='application/json')
 
 
-
 def update_user():
-    data = request.data
-    if 'name' not in data or 'age' not in data:
-        return Response('{"status": "error", "error": "Bad request"}', status=400, mimetype='application/json')
+    data = request.args
+    if 'name' not in data and 'age' not in data:
+        return Response('{"status": "error", "error": "age of name missing"}', status=400, mimetype='application/json')
+    if 'id' not in data:
+        return create_user()
+    id = data['id']
+    db = db_read()
+    if id not in db:
+        return Response('{"status": "error", "error": "unknown id"}', status=404, mimetype='application/json')
+    if 'name' in data:
+        db[id]['name'] = data['name']
+    if 'age' in data:
+        db[id]['age'] = data['age']
+    db_write(db)
+    return Response('{"status": "ok"}', status=200, mimetype='application/json')
 
-    pickle_in = open('data.pickle', 'rb')
-    data_new = pickle.load(pickle_in)
-    [{'id': 1, 'name': '123'}, {'id': 1, 'name': '321'}]
-    for user in data_new:
-        if user['id'] == data['id']:
-            user['name'] = data['name']
-            user['...'] = data['...']
 
-    js = json.dumps(data_new)
-    pickle_in.close()
+def remove_user():
+    data = request.args
+    if 'id' not in data:
+        return Response('{"status": "error", "error": "id missing"}', status=400, mimetype='application/json')
+    id = data['id']
+    db = db_read()
+    if id not in db:
+        return Response('{"status": "error", "error": "unknown id"}', status=404, mimetype='application/json')
+    del db[id]
+    db_write(db)
     return Response('{"status": "ok"}', status=200, mimetype='application/json')
 
 
 # Используем декоратор route() чтобы сообщить Flask, какой URL должен запускать нашу функцию
-@app.route('/users/', methods=['GET', 'POST'])
-@app.route('/users/<id>', methods=['GET', 'POST'])
+@app.route('/users/', methods=['GET', 'POST', 'PATCH', 'DELETE'])
+@app.route('/users/<id>', methods=['GET', 'POST', 'PATCH', 'DELETE'])
 def users(*args, **kwargs):
     if request.method == 'GET':
         return get_all_users()
@@ -71,10 +99,11 @@ def users(*args, **kwargs):
         return create_user()
     elif request.method == 'PATCH':
         return update_user()
+    elif request.method == 'DELETE':
+        return remove_user()
     else:
         pass
 
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
-
